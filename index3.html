@@ -20,6 +20,7 @@
     canvas {
       border: 1px solid rgba(225,251,254,0.1);
       box-shadow: 0 5px 40px rgba(255,251,254,0.1);
+      touch-action: none;
     }
     #info {
       position: absolute;
@@ -45,9 +46,11 @@
   const {
     Body, Sprite, Circle, Polygon,
     Vector,
-    Assets,
+    Assets, Joystick,
     Collisions, Solver, Manifold, Grid, DistanceConstraint, SpringConstraint, RopeConstraint
   } = engine;
+
+ // const grid = new Grid(16);
 
 
   // canvas steup and resize
@@ -62,7 +65,7 @@
   // resize function and event listener
   function resize() {
     let w = window.innerWidth, h = window.innerHeight;
-    w > h ? w = 16 / 9 * h : h = 9 / 16 * w;
+    //w > h ? w = 16 / 9 * h : h = 9 / 16 * w;
     canvas.width = w * dpr;
     canvas.height = h * dpr;
     canvas.style.width = w + "px";
@@ -77,9 +80,9 @@
   // load assets 
   const res = new Assets();
   const dat = [
-    { key: "mio1", url: "https://a.storyblok.com/f/178900/960x540/9c3a8da7e7/date-a-live-v.jpg/m/filters:quality(95)format(webp)", type: "img" },
+    { key: "mio1", url: "https://a.storyblok.com/f/178900/960x540/9c3a8da7e7/date-a-live-v.jpg/m/filters:quality(95)format(webp)", type: "img" }
    // { key: "mio2", url: "", type: "audio" },
-    { key: "mio3", url: "https://raw.githubusercontent.com/AvinashPro/AvinashPro.github.io/refs/heads/main/files/Grotto%20Escape/assets/json/tilemap1.json", type: "json" }
+    // { key: "mio3", url: "", type: "json" }
   ];
   //await res.load(dat);
   //let mio = res.get("mio1");
@@ -87,10 +90,15 @@
 
   const GRAVITY = new Vector(0, 200);
   const subSteps = 4;
-  const solver = new Solver(1);
+  const grid = new Grid(16);
+  const solver = new Solver(10, grid);
 
   const entities = [];
   const constraints = [];
+
+  const joystick = new Joystick(70, 180, 15, 30, 100);
+  joystick.init(canvas);
+ // console.log(joystick)
   /*
   entities.push(
     generateRect({
@@ -120,12 +128,12 @@
   
 
   const floor = new Polygon({
-    x: 180, y: 200, mass: 0, vertices:
+    x: canvas.clientWidth/2, y: canvas.clientHeight, mass: 0, vertices:
       [
-        new Vector(200, 5),
-        new Vector(-200, 5),
-        new Vector(-200, -20),
-        new Vector(200, -20)
+        new Vector(canvas.clientWidth/2, 5),
+        new Vector(-canvas.clientWidth/2, 5),
+        new Vector(-canvas.clientWidth/2, -20),
+        new Vector(canvas.clientWidth/2, -20)
       ]
   })
   floor.color = "22,45,75"
@@ -159,6 +167,25 @@
   });
   entities.push(platform);
 
+  const i1 = new Circle({
+    x: 200, y: 100, r: 5, mass: 10
+  });
+  const i2 = new Circle({
+    x: 250, y: 100, r: 5, mass: 10
+  });
+  const sc3 = new SpringConstraint(i1, i2, new Vector(), new Vector(), {
+    restLength: 50, minLength: 30, maxLength: 70, stiffness: 600
+  });
+ const sc4 = new SpringConstraint(i1, roof, new Vector(), new Vector(20, 0), {
+   restLength: 60, minLength: 40, maxLength: 80, stiffness: 600
+ })
+  const sc5 = new SpringConstraint(i2, roof, new Vector(), new Vector(70, 0), {
+    restLength: 60, minLength: 40, maxLength: 80, stiffness: 600
+  })
+  entities.push(i1, i2);
+  
+  constraints.push(sc3, sc4, sc5)
+
 
   
 
@@ -174,7 +201,7 @@
       new Vector(5, -5)
     ]
   });
-  const ropeConst1 = new RopeConstraint(poly1, roof, new Vector(), new Vector(0, 5), 50)
+  const ropeConst1 = new RopeConstraint(poly1, roof, new Vector(), new Vector(0, 5), 200)
   entities.push(poly1)
   constraints.push(ropeConst1)
   console.log(ropeConst1)
@@ -182,7 +209,28 @@
   
   
   
-  
+  function generateStack(s, n, sx, sy) {
+    let y = sy + s;
+    for(let i = n; i > 0; i--) {
+      let x = sx + s;
+      sx += s;
+      y -= 2 * s;
+      for(let j = 0; j < i; j++) {
+        x += 2 * s;
+        entities.push(new Polygon({
+          x, y, mass: 1, vertices: [
+            new Vector(s, s),
+            new Vector(-s, s),
+            new Vector(-s, -s),
+            new Vector(s, -s)
+          ]
+        }));
+      }
+      
+    }
+  }
+
+  generateStack(8, 12, 10, canvas.clientHeight - 20);
 
   function generateRect(params) {
     const w2 = params.w / 2,
@@ -227,11 +275,11 @@
       frames++;
     } else {
       fps = frames;
-      frames = 1;
+      frames = 0;
       lastTime = now;
     }
   }
-
+  
   // game loop 
   function loop() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -251,12 +299,14 @@
         e.applyForce(GRAVITY.clone().scale(e.mass));
         e.updateVel(subDt);
         e.computeWorldVerts();
+        e.computeBoundingBox();
       }
 
       for(const c of constraints) {
         solver.excludeCollision(c.bodyA, c.bodyB);
         c.preCompute();
       }
+
       
       solver.detectCollisions(entities);
       //for(const c of)
@@ -271,6 +321,17 @@
 
 
     const z = ZOOM * dpr;
+    ctx.setTransform(z, 0, 0, z, 0, 0);
+    for(const e of entities) {
+      ctx.fillStyle = "rgba(255,255,255,0.05)";
+      ctx.fillRect(
+        e.boundingBox.minX,
+        e.boundingBox.minY,
+        e.boundingBox.maxX - e.boundingBox.minX,
+        e.boundingBox.maxY - e.boundingBox.minY
+      );
+    }
+    
     for(const e of entities) {
       // transformation matrix 
       const sin = Math.sin(e.angle),
@@ -285,13 +346,20 @@
       ]);*/
       ctx.setTransform(cos * z, sin * z, -sin * z, cos * z, e.pos.x * z, e.pos.y * z);
       e.render(ctx);
+
+      
+      
       
     }
 
     ctx.setTransform(z, 0, 0, z, 0, 0);
     for(const c of constraints) c.render(ctx);
+    joystick.update();
+    joystick.render(ctx);
+    //infoElm.textContent += " (" + joystick.x.toFixed(2) + ", " + joystick.y.toFixed(2) + ")";
+    //entities[5].vel.add(joystick.n.scale(10))
     
-
+    infoElm.textContent += " " + solver.collisionCount + " collisions! " + entities.length + " entities!";
     //ctx.resetTransform();
     requestAnimationFrame(loop);
   }
@@ -302,6 +370,7 @@ const randint = (min, max) => Math.round(Math.random() * (max - min)) + min;
   
 const canvasRect = canvas.getBoundingClientRect();
 canvas.addEventListener("pointerdown", e => {
+  if(joystick.active) return;
   const r = randint(5, 10);
   const mass = r * 1.2;
   const x = e.clientX - canvasRect.left,
@@ -319,6 +388,21 @@ canvas.addEventListener("pointerdown", e => {
 
   entities.push(ent);
   
+})
+canvas.addEventListener("pointerup", () => {
+  //if(joystick.active)
+ // console.log(joystick.x, joystick.y)
+  //if(!joystick.active) return;
+  let e = new Polygon({
+    x: joystick.pos.x, y: joystick.pos.y, mass: 10, vertices: generatePolyVertices(randint(3, 8), 5)
+  });
+  //entities.push(e)
+  //console.log(e)
+  
+  
+  entities.push(e);
+  let v = 300;
+  e.vel.set(-joystick.x * v, -joystick.y * v);
 })
   
 </script>

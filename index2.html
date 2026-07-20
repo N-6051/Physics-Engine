@@ -18,6 +18,7 @@
       place-items: center;
     }
     canvas {
+      position: relative;
       border: 1px solid rgba(225,251,254,0.1);
       box-shadow: 0 5px 40px rgba(255,251,254,0.1);
     }
@@ -29,11 +30,40 @@
       left: 5px;
       font-family: monospace;
     }
+    #logo {
+      position: absolute;
+      top: 250px;
+      left: 30px;
+      font-size: 12px;
+      font-weight: ;
+      animation: out 1s ease-out;
+      animation-delay: 1s;
+      animation-fill-mode: forwards;
+    }
+    @keyframes out {
+      0% {
+        
+      }
+      100% {
+        transform: translateX(-200px) scale(0.1) translateY(50px);
+        opacity: 0.5;
+      }
+    }
+    
+    #logo span:nth-child(1) {
+      color: rgb(38,255,253);
+      text-shadow: 0 0 20px rgb(38,255,253);
+    }
+    #logo span:nth-child(2) {
+      color: #fff;
+      text-shadow: 0 0 20px #fff;
+    }
   </style>
 </head>
 <body>
-  <canvas id="game">Not Supported!</canvas>
   <div id="info"></div>
+  <canvas id="game">Not Supported!</canvas>
+  <p id="logo"><span>Double</span><span>Pendulum</span></p>
 
   <script src="src/Asset.js"></script>
 <script type="module">
@@ -46,7 +76,7 @@
     Body, Sprite, Circle, Polygon,
     Vector,
     Assets,
-    Collisions, Solver, Manifold, Grid, DistanceConstraint, SpringConstraint, RopeConstraint
+    Collisions, Solver, Manifold, Grid, DistanceConstraint
   } = engine;
 
 
@@ -87,7 +117,7 @@
 
   const GRAVITY = new Vector(0, 200);
   const subSteps = 4;
-  const solver = new Solver(1);
+  const solver = new Solver(10);
 
   const entities = [];
   const constraints = [];
@@ -101,84 +131,73 @@
     }),
     generateRect({
       x: 180, y: 112, angle: -1.2, w: 150, h: 5, mass: 0, color: "0,132,190"
-    })/*,
+    })
+    ,
     generateRect({
       x: 150, y: 20, angle: -0.2, w: 60, h: 4, color: "150,140,0"
     })
   );*/
 
   const cir1 = new Circle({
-    x: 300, y: 50, r: 10, mass: 5
+    x: 170, y: 50, r: 0, mass: 0
   });
   const cir2 = new Circle({
-    x: 250, y: 40, r: 10, mass: 5
+    x: 200, y: 60, r: 3, mass: 1
   })
-  const distConst1 = new DistanceConstraint(cir1, cir2, new Vector(5, 0), new Vector(-5, 0), 70);
-  entities.push(cir1, cir2);
-  
-  
-  
-
-  const floor = new Polygon({
-    x: 180, y: 200, mass: 0, vertices:
-      [
-        new Vector(200, 5),
-        new Vector(-200, 5),
-        new Vector(-200, -20),
-        new Vector(200, -20)
-      ]
+  const cir3 = new Circle({
+    x: 270, y: 30, r: 3, mass: 1
   })
-  floor.color = "22,45,75"
-  const roof = new Polygon({
-    x: 180, y: 40, mass: 0, vertices:
-      [
-        new Vector(100, 5),
-        new Vector(-100, 5),
-        new Vector(-100, -5),
-        new Vector(100, -5)
-      ]
-  })
-  roof.color = "100,100,300"
-
-  const platform = new Polygon({
-    x: 125, y: 100, mass: 5, vertices: [
-      new Vector(50, 1),
-      new Vector(-50, 1),
-      new Vector(-50, -1),
-      new Vector(50, -1)
-    ]
-  });
   const cir4 = new Circle({
-    x: 120, y: 40, r: 10, mass: 5
+    x: 200, y: 60, r: 3, mass: 1
   })
-  const springConst1 = new SpringConstraint(roof, platform, new Vector(-90, 5), new Vector(-40, 0), {
-    maxLength: 50, stiffness: 300, restLength: 30, minLength: 10
-  });
-  const springConst2 = new SpringConstraint(roof, platform, new Vector(-20, 5), new Vector(40, 0), {
-    maxLength: 50, stiffness: 300, restLength: 30, minLength: 10
-  });
-  entities.push(platform);
-
+  const cir5 = new Circle({
+    x: 270, y: 31, r: 3, mass: 1
+  })
+  const distConst1 = new DistanceConstraint(cir1, cir2, new Vector(0, 0), new Vector(0, 0), 70);
+  const distConst2 = new DistanceConstraint(cir3, cir2, new Vector(0, 0), new Vector(0, 0), 70);
+  const distConst3 = new DistanceConstraint(cir1, cir4, new Vector(0, 0), new Vector(0, 0), 70);
+  const distConst4 = new DistanceConstraint(cir4, cir5, new Vector(0, 0), new Vector(0, 0), 70);
 
   
+  entities.push(cir1, cir2, cir3, cir4, cir5);
+  constraints.push(distConst1);
+  constraints.push(distConst2, distConst3, distConst4);
+  console.log(entities, constraints);
 
-  entities.push(floor, roof)
-  constraints.push(distConst1, springConst1, springConst2);
-  console.log(entities, constraints, SpringConstraint);
 
-  const poly1 = new Polygon({
-    x: 120, y: 50, mass: 1, vertices: [
-      new Vector(5, 5),
-      new Vector(-5, 5),
-      new Vector(-5, -5),
-      new Vector(5, -5)
-    ]
-  });
-  const ropeConst1 = new RopeConstraint(poly1, roof, new Vector(), new Vector(0, 5), 50)
-  entities.push(poly1)
-  constraints.push(ropeConst1)
-  console.log(ropeConst1)
+  class Trail {
+      constructor(size = 100) {
+        this.size = size;
+        this.points = [];
+
+        this.start = 0;
+        this.count = 0;
+      }
+      
+      add(point) {
+        const i = (this.start + this.count) % this.size;
+        this.points[i] = point;
+
+        if (this.count < this.size) {
+            this.count++;
+        } else {
+            this.start = (this.start + 1) % this.size;
+        }
+      }
+      get(i) {
+        return this.points[(this.start + i) % this.size];
+      }
+      
+    }
+  const tracedPath = new Trail(100);
+  for(let i = 0; i < tracedPath.size; i++) {
+    tracedPath.add(cir3.pos.clone())
+  }
   
+  const trail2 = new Trail(100);
+  for(let i = 0; i < trail2.size; i++) {
+    trail2.add(cir5.pos.clone());
+  }
   
   
   
@@ -238,15 +257,23 @@
     // fps and dt 
     calcDtFps();
     infoElm.textContent = `FPS: ${fps}`;
+    tracedPath.add(cir3.pos.clone());
+    trail2.add(cir5.pos.clone());
+    
 
 
     const subDt = dt / subSteps;
     for(let i = 0; i < subSteps; i++) {
-
-      for(const c of constraints) {
-        if(c instanceof SpringConstraint) c.applySpringForce();
-      }
+solver.excludeCollision(cir1, cir3)
+solver.excludeCollision(cir1, cir4)
+solver.excludeCollision(cir1, cir5)
+solver.excludeCollision(cir3, cir4)
+solver.excludeCollision(cir4, cir2)
+solver.excludeCollision(cir5, cir2)
+solver.excludeCollision(cir3, cir5)
       
+
+
       for(let e of entities) {
         e.applyForce(GRAVITY.clone().scale(e.mass));
         e.updateVel(subDt);
@@ -288,11 +315,59 @@
       
     }
 
-    ctx.setTransform(z, 0, 0, z, 0, 0);
-    for(const c of constraints) c.render(ctx);
+    for(const c of constraints) {
+      const sin = Math.sin(c.bodyA.angle),
+            cos = Math.cos(c.bodyA.angle);
+      /*const matrix = new DOMMatrix([
+        cos * z,
+        sin * z,
+        - sin * z,
+        cos * z,
+        e.pos.x * z,
+        e.pos.y * z
+      ]);*/
+      ctx.setTransform(z, 0, 0, z, 0, 0)
+     // ctx.setTransform(cos * z, sin * z, -sin * z, cos * z, c.bodyA.x * z, c.bodyA.y * z);
+      c.render(ctx)
+      
+      
+    }
+
+    
+    //ctx.beginPath();
+    //ctx.strokeStyle = "rgb(222,255,38)";
+    ctx.strokeStyle = "#f04";
+    
+    //ctx.moveTo(tracedPath[0].x, tracedPath[0].y);
     
 
+
+    
+    for(let j = 1; j < tracedPath.size; j++) {
+      ctx.beginPath();
+      ctx.globalAlpha = j / tracedPath.count;
+      let p0 = tracedPath.get(j - 1);
+      let p1 = tracedPath.get(j);
+      ctx.moveTo(p0.x, p0.y);
+      ctx.lineTo(p1.x, p1.y);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = "rgb(38,255,255)";
+    for(let j = 1; j < trail2.size; j++) {
+      ctx.beginPath();
+      ctx.globalAlpha = j / trail2.count;
+      let p0 = trail2.get(j - 1);
+      let p1 = trail2.get(j);
+      ctx.moveTo(p0.x, p0.y);
+      ctx.lineTo(p1.x, p1.y);
+      ctx.stroke();
+    }
+    
+
+    ctx.globalAlpha = 1;
+
     //ctx.resetTransform();
+    ctx.setTransform(z, 0, 0, z, 0, 0);
     requestAnimationFrame(loop);
   }
   loop();
@@ -303,12 +378,12 @@ const randint = (min, max) => Math.round(Math.random() * (max - min)) + min;
 const canvasRect = canvas.getBoundingClientRect();
 canvas.addEventListener("pointerdown", e => {
   const r = randint(5, 10);
-  const mass = r * 1.2;
+  const mass = r * 1.2*100;
   const x = e.clientX - canvasRect.left,
         y = e.clientY - canvasRect.top;
 
   let ent;
-  if(Math.random() > 0.8) {
+  if(Math.random() > 0.5) {
     ent = new Circle({ x, y, r, mass });
   } else {
     ent = new Polygon({

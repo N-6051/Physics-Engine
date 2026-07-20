@@ -3,16 +3,58 @@ import { Vector } from "../math/Vector.js"
 
 export class Solver {
   
-  constructor(iters) {
+  constructor(iters = 10, grid = null) {
     this.iters = iters;
+    this.noCollide = [];
+    
+    this.collisionCount = 0;
+    this.grid = grid;
+  }
+
+  includeCollision(a, b) {
+    const m = Math.min(a.id, b.id);
+    const M = Math.max(a.id, b.id);
+    const exclusions = this.noCollide[m];
+    if(!exclusions) return;
+    exclusions.delete(M);
+    if(exclusions.size === 0) {
+      delete this.noCollide[m];
+    }
+  }
+
+  excludeCollision(a, b) {
+    const m = Math.min(a.id, b.id);
+    const M = Math.max(a.id, b.id);
+    if(this.noCollide[m] === undefined) {
+      this.noCollide[m] = new Set();
+    }
+    this.noCollide[m].add(M);
+  }
+
+  shouldCollide(a, b) {
+    const m = Math.min(a.id, b.id);
+    const M = Math.max(a.id, b.id);
+    const exclusions = this.noCollide[m];
+    if(exclusions === undefined) return true;
+    return !exclusions.has(M);
   }
 
 
   detectCollisions(bodies) {
     this.manifolds = [];
-    for(let b1 of bodies) {
-      for(let b2 of bodies) {
+    this.collisionCount = 0;
+
+    if(this.grid) {
+      for(const b of bodies) this.grid.insert(b, b.boundingBox.minX, b.boundingBox.minY, b.boundingBox.maxX - b.boundingBox.minX, b.boundingBox.maxY - b.boundingBox.minY);
+  }
+    
+    for(const b1 of bodies) {
+      const nearby = this.grid ? this.grid.query(b1.boundingBox.minX, b1.boundingBox.minY, b1.boundingBox.maxX - b1.boundingBox.minX, b1.boundingBox.maxY - b1.boundingBox.minY) : bodies;
+      for(const b2 of nearby) {
         if(b1.id <= b2.id) continue;
+        if(!this.shouldCollide(b1, b2)) continue;
+        
+        this.collisionCount++;
 
           const m = Collisions.findCollisions(b1, b2);
           if(m && m.contacts.length > 0) {
@@ -22,6 +64,7 @@ export class Solver {
       
       }
     }
+    if(this.grid) this.grid.clear();
     return this.manifolds;
   }
 
@@ -65,9 +108,10 @@ export class Solver {
     
   }
 
-  solve() {
+  solve(constraints) {
     for(let iter = 0; iter < this.iters; iter++) {
       for(let m of this.manifolds) this.solveManifold(m);
+      for(let c of constraints) c.solve();
     }
   }
 
@@ -150,8 +194,8 @@ export class Solver {
     
   }
 
-  correctPositions() {
-    const percent = 0.1;
+  correctPositions(constraints) {
+    const percent = 0.4;
     const slop = 0.01;
 
     for(let m of this.manifolds) {
@@ -171,6 +215,10 @@ export class Solver {
 
 
       
+    }
+
+    for(const c of constraints) {
+      c.correctPositions();
     }
     
   }

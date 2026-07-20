@@ -1,37 +1,24 @@
 import { Body } from "./Body.js"
+import { Vector } from "../math/Vector.js"
 
 export class Polygon extends Body {
-  constructor(x = 0, y = 0, mass = 10, vertices = [], material = {}) {
-    super(x, y, mass, material);
-    this.vertices = vertices;
-
-    
-    let minX = Infinity, maxX = -Infinity,
-        minY = Infinity, maxY = -Infinity;
-    for(let vertex of vertices) {
-      minX = Math.min(vertex.x, minX);
-      maxX = Math.max(vertex.x, maxX);
-      minY = Math.min(vertex.y, minY);
-      maxY = Math.max(vertex.y, maxY);
-    }
-
-    const w = maxX - minX;
-    const h = maxY - minY;
-    this.mInertia = mass / 12 * (w * w + h * h);
-    this.mInertia ? this.invMInertia = 1 / this.mInertia : this.invMInertia = 0;
-    
-
+  constructor(params = {}) {
+    super(params);
     this.shape = 1;
-
-
-
-    this.computeWorldCoords();
-    this.computeBoundingBox();
-    if(mass) {
-      this._updateWorldCoords = true;
+    
+    this.worldVerts = [];
+    for(let i = 0; i < this.vertices.length; i++) {
+      this.worldVerts.push(new Vector());
     }
-
-      
+        
+    this.computeWorldVerts();
+    this.boundingBox = {};
+    this.computeBoundingBox();
+    
+    const w = this.boundingBox.maxX - this.boundingBox.minX;
+    const h = this.boundingBox.maxY - this.boundingBox.minY;
+    this.mInertia = this.mass / 12 * (w * w + h * h);
+    this.invMInertia = this.mInertia > 0 ? 1 / this.mInertia : 0;
   }
 
 
@@ -52,20 +39,16 @@ export class Polygon extends Body {
   }
 
 
-  getWorldCoords() {
-    let ver = [];
-    for(let v of this.vertices) {
-      ver.push(
+  computeWorldVerts() {
+    for(let i = 0; i < this.vertices.length; i++) {
+      const v = this.vertices[i];
+      this.worldVerts[i].copy(
         v.clone()
         .rotate(this.angle)
         .add(this.pos)
       );
     }
-    return ver;
-  }
-
-  computeWorldCoords() {
-    this.worldVerts = this.getWorldCoords();
+    return this.worldVerts;
   }
 
   computeBoundingBox() {
@@ -79,12 +62,11 @@ export class Polygon extends Body {
       maxX = Math.max(maxX, v.x);
       maxY = Math.max(maxY, v.y);
     }
-    this.boundingBox = {
-      minX: minX,
-      minY: minY,
-      maxX: maxX,
-      maxY: maxY
-    };
+    
+    this.boundingBox.minX = minX;
+    this.boundingBox.maxX = maxX;
+    this.boundingBox.minY = minY;
+    this.boundingBox.maxY = maxY;
   }
 
 
